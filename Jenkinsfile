@@ -1,12 +1,10 @@
 pipeline {
-    
-	agent any
-/*	
-	tools {
+    agent any
+    tools {
         maven "maven3"
     }
-*/	
-    environment {
+       
+	environment {
         NEXUS_VERSION = "nexus3"
         NEXUS_PROTOCOL = "http"
         NEXUS_URL = "18.169.191.251:8081"
@@ -15,68 +13,24 @@ pipeline {
         NEXUS_CREDENTIAL_ID = "nexus"
         ARTVERSION = "${env.BUILD_ID}"
     }
-	
-    stages{
-        
-        stage('BUILD'){
+    stages {
+        stage("Clone code") {
             steps {
-                sh 'mvn clean install'
-            }
-            post {
-                success {
-                    echo 'Now Archiving...'
-                    archiveArtifacts artifacts: '**/target/*.war'
+                script {
+                    // Let's clone the source
+                    checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Aakarsha99/spring3-mvc-maven-xml-hello-world-1.git']])
                 }
             }
         }
-
-	stage('UNIT TEST'){
+        stage("Maven build") {
             steps {
-                sh 'mvn test'
-            }
-        }
-
-	stage('INTEGRATION TEST'){
-            steps {
-                sh 'mvn verify -DskipUnitTests'
-            }
-        }
-		
-        stage ('CODE ANALYSIS WITH CHECKSTYLE'){
-            steps {
-                sh 'mvn checkstyle:checkstyle'
-            }
-            post {
-                success {
-                    echo 'Generated Analysis Result'
+                script {
+                    // If you are using Windows then you should use "bat" step
+                    // Since unit testing is out of the scope we skip them
+                    sh 'mvn clean install'
                 }
             }
         }
-
-        stage('CODE ANALYSIS with SONARQUBE') {
-          
-		  environment {
-             scannerHome = tool 'sonarscanner4'
-          }
-
-          steps {
-            withSonarQubeEnv('sonar-pro') {
-               sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=task1 \
-                   -Dsonar.projectName=task1 \
-                   -Dsonar.projectVersion=3.0 \
-                   -Dsonar.sources=src/ \
-                   -Dsonar.java.binaries=target/test-classes/com/visualpathit/account/controllerTest/ \
-                   -Dsonar.junit.reportsPath=target/surefire-reports/ \
-                   -Dsonar.jacoco.reportsPath=target/jacoco.exec \
-                   -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
-            }
-
-            timeout(time: 10, unit: 'MINUTES') {
-               waitForQualityGate abortPipeline: true
-            }
-          }
-        }
-
         stage("Publish to Nexus Repository Manager") {
             steps {
                 script {
@@ -110,12 +64,7 @@ pipeline {
 		    else {
                         error "*** File: ${artifactPath}, could not be found";
                     }
-                }
-            }
         }
-
-
     }
-
-
+}}
 }
